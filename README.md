@@ -1,1 +1,0 @@
-# IDX-Exchange-AWS-Cloud-Engineerining
