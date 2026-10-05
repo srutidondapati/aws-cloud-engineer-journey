@@ -14,5 +14,5 @@ The policy allows:
 
 Scope:
 - The policy uses the scope of the training bucket, 'arn:aws:s3:::my-training-bucket-sruti/*'.
-- The '/*' ensures that the permissions apply to objects inside the bucket since without the '/*' only refers to the bucket itself, not the objects.
+- The '/\*' ensures that the permissions apply to objects inside the bucket since without the '/\*' only refers to the bucket itself, not the objects.
 - This policy limits the users access to this particular bucket rather than giving the user all access to the S3 resources.
