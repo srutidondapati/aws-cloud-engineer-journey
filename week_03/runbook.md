@@ -21,5 +21,8 @@ curl http://<public-ip>:8080/properties/R100234
 
 ## 5. EBS Snapshot
 
+   An EBS snapshot was created using the root volume of property-api-01 through the actions tab from volumes. If a new snapshot were to be created it would create a new EBS volume that contains the saved data. 
 
+## Summary:
 
+EC2 runs applications on virtual servers that are hosted by AWS, an instance in EC2 is essentially one virtual computer that runs Python and PropertyLite. The configured security group controls the network connections, managing which connections are allowed or rejected. EBS snapshots provide a way to save the volume data for recovery cases.
