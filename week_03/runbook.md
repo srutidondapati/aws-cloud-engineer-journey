@@ -14,5 +14,12 @@
        
 ## 4. Instance Connection
 
-   
-   
+   EC2 was connected from my Ubuntu terminal using the command: "ssh -i ~/.ssh/training-key.pem ec2-user@<public-ip>" which was replaced with the actual public IPv4 address of the instance. I tested the API from my Ubuntu terminal using the commands:
+
+curl http://<public-ip>:8080/health
+curl http://<public-ip>:8080/properties/R100234
+
+## 5. EBS Snapshot
+
+
+
