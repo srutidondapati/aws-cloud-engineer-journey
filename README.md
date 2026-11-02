@@ -46,14 +46,12 @@ Built a training-vpc with 2 public and 2 private subnets across 2AZs, an Interne
 Manually terminated i-0ec204f2e1131b0d8 in the EC2 console. The ASG detected it at
 20:45:28 and launched replacement i-0e388985628db2c75 at 20:45:30
 (detection-to-launch: ~2 seconds).
-![self-healing](self-healing.png)
 
 ### Scale-out test
 - Stress started (stress-ng --cpu 2): ~[HH:MM] on i-xxxx
-- CPU crossed 50%: 20:20 datapoint (~100%)  ![cpu](cpu-spike.png)
+- CPU crossed 50%: 20:20 datapoint (~100%) 
 - AlarmHigh #1: 20:24:55, desired 1 → 2, instance launched 20:25:02
 - AlarmHigh #2: 20:30:55, desired 2 → 4 (max reached), instances launched 20:31:01
-  ![scale-out](scale-out.png)
 - **Gap between CPU spike and first scale-out: ~5 minutes** (CloudWatch data is
   5-minute granularity)
 
