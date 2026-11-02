@@ -70,11 +70,5 @@ I connected to a server over SSH and ran `stress-ng --cpu 2 --timeout 600s`, whi
 - With ELB health checks on, the ASG replaces any server that fails them, which is helpful when working and noisy when broken.
 - Target tracking scales in as well as out, and it reacts after several minutes, not instantly.
 
-## What I'd do differently
-- Put the servers in private subnets (with a NAT gateway) instead of the default VPC.
-- Use a longer health check grace period so servers have time to start before being checked.
-- Set a lower max capacity or a cooldown to avoid jumping from 2 to 4 servers at once.
-- Turn on 1-minute group metrics for more precise timing.
-
 ## Cleanup
 Deleted in order: ASG, ALB, target group, launch template.
