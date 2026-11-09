@@ -112,7 +112,7 @@ HTTP/2 404
 {"error": "not found"}
 ```
 
-Screenshot: `screenshots/7.1-curl-success.png`
+Screenshot: `screenshots/7.1_curl_response.png`
 
 ### Least-privilege IAM
 
