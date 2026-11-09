@@ -112,7 +112,7 @@ HTTP/2 404
 {"error": "not found"}
 ```
 
-![curl success](week-07/7.1_curl_response.png)
+![curl success](week_07/7.1_curl_response.png)
 
 ### Least-privilege IAM
 
@@ -149,7 +149,7 @@ aws sqs receive-message --queue-url https://sqs.us-west-1.amazonaws.com/66125517
 
 With `maxReceiveCount: 3`, a message received three times without being deleted moves to `property-dlq` instead of retrying forever, so failures are parked for inspection.
 
-![SQS receive-message](week-07/7.2_SQS.png)
+![SQS receive-message](week_07/7.2_SQS.png)
 
 ## Concepts
 
