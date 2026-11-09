@@ -78,3 +78,84 @@ to 2 to end the test.
 - **Scale-in:** target tracking also removes instances when CPU is low (20:13 and 19:49).
 - **What I'd tune:** a longer health check grace period, a lower max or cooldown to
   avoid jumping 2 → 4, and 1-minute group metrics for tighter timing.
+
+
+## Week 07: Serverless & Event-Driven Architecture
+
+## Request path
+
+```mermaid
+flowchart LR
+  C[Client / curl] -->|GET /properties/R100234| A["API Gateway<br/>HTTP API"]
+  A -->|"Lambda proxy, payload v2.0"| L["Lambda: get-property<br/>Python 3.12"]
+  L -->|GetItem| D[("DynamoDB: Properties")]
+  D --> L --> A --> C
+```
+
+- **API Gateway:** HTTP API `propertylite-api`, route `GET /properties/{id}` (us-east-1)
+- **Lambda:** `get-property` reads `event['pathParameters']['id']` and calls `GetItem` on `L_ListingID` (us-west-1)
+- **DynamoDB:** `Properties` table, partition key `L_ListingID` (us-west-1)
+
+This is the same lookup the Flask route in `propertylite/app.py` does against a CSV, now backed by DynamoDB.
+
+## Lab 7.1: API Gateway → Lambda → DynamoDB
+
+Code: [`lambda/lambda_function.py`](lambda/lambda_function.py). Returns 200 with the item, or 404 with `{"error": "not found"}`, matching the Flask route.
+
+```
+$ curl -i https://22iwxymh69.execute-api.us-east-1.amazonaws.com/properties/R100234
+HTTP/2 200
+{"L_SystemPrice": "450000", "L_ListingID": "R100234", "L_Status": "Active", "L_Keyword2": "3", "L_City": "Sacramento", "LM_Dec_3": "2.0", "LM_Int2_3": "1450"}
+
+$ curl -i https://22iwxymh69.execute-api.us-east-1.amazonaws.com/properties/NOPE
+HTTP/2 404
+{"error": "not found"}
+```
+
+Screenshot: `screenshots/7.1-curl-success.png`
+
+### Least-privilege IAM
+
+The Lambda's role has one inline policy, `LambdaReadPropertiesOnly`:
+
+```json
+{
+  "Version": "2012-10-17",
+  "Statement": [{
+    "Effect": "Allow",
+    "Action": "dynamodb:GetItem",
+    "Resource": "arn:aws:dynamodb:us-west-1:661255175149:table/Properties"
+  }]
+}
+```
+
+The role can call one action on one table and nothing else, so a bug or compromise in the function can't reach other tables or services in the account. This avoids the broad `AmazonDynamoDBReadOnlyAccess` managed policy.
+
+### Issue hit: `"Hello from Lambda!"`
+
+The API returned the Lambda starter response instead of a listing. The API route and integration were correct; the function was still running its default code. `aws lambda invoke` directly against the function isolated this, and deploying the real code fixed it.
+
+## Lab 7.2: SQS with a dead-letter queue
+
+```bash
+aws sqs create-queue --queue-name property-dlq
+aws sqs create-queue --queue-name property-queue --attributes \
+'{"RedrivePolicy":"{\"deadLetterTargetArn\":\"arn:aws:sqs:us-west-1:661255175149:property-dlq\",\"maxReceiveCount\":\"3\"}"}'
+aws sqs send-message --queue-url https://sqs.us-west-1.amazonaws.com/661255175149/property-queue --message-body '{"PropertyId":"P1002"}'
+aws sqs receive-message --queue-url https://sqs.us-west-1.amazonaws.com/661255175149/property-queue
+```
+
+`receive-message` returned `"Body": "{\"PropertyId\":\"P1002\"}"`.
+
+With `maxReceiveCount: 3`, a message received three times without being deleted moves to `property-dlq` instead of retrying forever, so failures are parked for inspection.
+
+Screenshot: `screenshots/7.2-receive-message.png`
+
+## Concepts
+
+- **Lambda execution model:** code runs in on-demand execution environments, billed per invocation and duration.
+- **Cold start:** the first invocation (or one after idle or scale-up) must initialize an environment. Clients like `boto3.resource` are created outside the handler so warm invocations reuse them.
+- **API Gateway:** managed front door that maps HTTP routes to integrations like Lambda.
+- **SQS / DLQ:** durable queue decoupling producers and consumers; the DLQ holds messages that keep failing.
+- **SNS:** pub/sub topic that fans one message out to many subscribers.
+- **Debugging:** for any Lambda error, check CloudWatch Logs first (Lambda → Monitor → View CloudWatch logs).
