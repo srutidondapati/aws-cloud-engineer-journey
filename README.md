@@ -131,7 +131,7 @@ The Lambda's role has one inline policy, `LambdaReadPropertiesOnly`:
 
 The role can call one action on one table and nothing else, so a bug or compromise in the function can't reach other tables or services in the account. This avoids the broad `AmazonDynamoDBReadOnlyAccess` managed policy.
 
-### Issue hit: `"Hello from Lambda!"`
+### Issue: `"Hello from Lambda!"`
 
 The API returned the Lambda starter response instead of a listing. The API route and integration were correct; the function was still running its default code. `aws lambda invoke` directly against the function isolated this, and deploying the real code fixed it.
 
