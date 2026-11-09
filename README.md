@@ -98,9 +98,25 @@ flowchart LR
 
 This is the same lookup the Flask route in `propertylite/app.py` does against a CSV, now backed by DynamoDB.
 
-## Lab 7.1: API Gateway → Lambda → DynamoDB
+I took PropertyLite's "get one listing" feature and ran it without a server. Instead of an always-on EC2 instance, a request now flows through three AWS services that only run when someone calls them.
 
-Code: [`lambda/lambda_function.py`](lambda/lambda_function.py). Returns 200 with the item, or 404 with `{"error": "not found"}`, matching the Flask route.
+## Lab 7.1: Serverless listing lookup
+
+**How a request flows:**
+
+```
+curl → API Gateway → Lambda → DynamoDB → back to curl
+```
+
+1. **API Gateway** receives the web request (`GET /properties/R100234`).
+2. **Lambda** runs my Python function, which reads the listing ID from the URL.
+3. **DynamoDB** stores the listings; Lambda looks up that ID and returns the result.
+
+This is the same lookup as the Flask `get_property` route. The only difference is that it reads DynamoDB instead of a CSV file. Week 4's database had been torn down, so I loaded the two sample rows from the Week 0 CSV.
+
+Code: [`lambda/lambda_function.py`](lambda/lambda_function.py)
+
+**Results:** a real ID returns the listing (200), and a fake ID returns an error (404).
 
 ```
 $ curl -i https://22iwxymh69.execute-api.us-east-1.amazonaws.com/properties/R100234
@@ -114,9 +130,7 @@ HTTP/2 404
 
 ![curl success](week_07/7.1_curl_response.png)
 
-### Least-privilege IAM
-
-The Lambda's role has one inline policy, `LambdaReadPropertiesOnly`:
+**Permissions (least privilege):** the Lambda is only allowed to read from the `Properties` table:
 
 ```json
 {
@@ -129,13 +143,13 @@ The Lambda's role has one inline policy, `LambdaReadPropertiesOnly`:
 }
 ```
 
-The role can call one action on one table and nothing else, so a bug or compromise in the function can't reach other tables or services in the account. This avoids the broad `AmazonDynamoDBReadOnlyAccess` managed policy.
+It can do one thing (read one item) on one table. If the function had a bug or was compromised, it still couldn't touch anything else in the account.
 
-### Issue: `"Hello from Lambda!"`
+**Problem I hit:** the API returned `"Hello from Lambda!"` instead of a listing. The API setup was correct, but the Lambda was still running AWS's default starter code. Testing the Lambda directly with `aws lambda invoke` showed this, and deploying my real code fixed it.
 
-The API returned the Lambda starter response instead of a listing. The API route and integration were correct; the function was still running its default code. `aws lambda invoke` directly against the function isolated this, and deploying the real code fixed it.
+## Lab 7.2: SQS dead-letter queue
 
-## Lab 7.2: SQS with a dead-letter queue
+I created two queues. `property-queue` is the main one, and `property-dlq` is where messages go if they fail 3 times (`maxReceiveCount: 3`), so one bad message doesn't retry forever.
 
 ```bash
 aws sqs create-queue --queue-name property-dlq
@@ -145,17 +159,15 @@ aws sqs send-message --queue-url https://sqs.us-west-1.amazonaws.com/66125517514
 aws sqs receive-message --queue-url https://sqs.us-west-1.amazonaws.com/661255175149/property-queue
 ```
 
-`receive-message` returned `"Body": "{\"PropertyId\":\"P1002\"}"`.
-
-With `maxReceiveCount: 3`, a message received three times without being deleted moves to `property-dlq` instead of retrying forever, so failures are parked for inspection.
+`receive-message` returned the message I sent (`{"PropertyId":"P1002"}`), so it worked.
 
 ![SQS receive-message](week_07/7.2_SQS.png)
 
-## Concepts
+## Key terms
 
-- **Lambda execution model:** code runs in on-demand execution environments, billed per invocation and duration.
-- **Cold start:** the first invocation (or one after idle or scale-up) must initialize an environment. Clients like `boto3.resource` are created outside the handler so warm invocations reuse them.
-- **API Gateway:** managed front door that maps HTTP routes to integrations like Lambda.
-- **SQS / DLQ:** durable queue decoupling producers and consumers; the DLQ holds messages that keep failing.
-- **SNS:** pub/sub topic that fans one message out to many subscribers.
-- **Debugging:** for any Lambda error, check CloudWatch Logs first (Lambda → Monitor → View CloudWatch logs).
+- **Lambda:** runs code on demand with no server to manage; you pay only when it runs.
+- **Cold start:** the first call after idle time is slower because AWS has to start the environment.
+- **API Gateway:** the public URL that triggers the Lambda.
+- **SQS:** a message queue. The **DLQ** collects messages that keep failing.
+- **SNS:** sends one message to many subscribers (email, queues, etc.).
+- **Debugging rule:** for a Lambda error, check CloudWatch Logs first.
