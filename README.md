@@ -171,3 +171,23 @@ aws sqs receive-message --queue-url https://sqs.us-west-1.amazonaws.com/66125517
 - **SQS:** a message queue. The **DLQ** collects messages that keep failing.
 - **SNS:** sends one message to many subscribers (email, queues, etc.).
 - **Debugging rule:** for a Lambda error, check CloudWatch Logs first.
+
+## Week 08: Infrastructure as Code
+
+This lab recreates my Week 5 VPC networking design as code. The VPC is called `training-vpc-tf` (CIDR `10.1.0.0/16`, 2 public + 2 private subnets, one NAT gateway) in `us-east-1`.
+
+### `terraform init`
+Downloads the AWS provider and the VPC module into `.terraform/` and prepares the working directory. No AWS resources are touched.
+
+### `terraform plan`
+Compares three things: my code (desired state), the state file (what Terraform thinks exists) and the real AWS resources. It prints what it would create (+), change (~) or destroy (-). It changes nothing, so it is my safety check. My plan showed 19 to add, 0 to change, 0 to destroy.
+
+### `terraform apply`
+Runs the plan, asks for confirmation, then makes the API calls to AWS in dependency order (VPC, subnets, internet gateway, Elastic IP, NAT gateway, route tables, associations). When it finishes it writes everything it created into the state file. Success looks like `Apply complete!` and `training-vpc-tf` showing in the VPC console.
+
+### `terraform destroy` 
+Plans the removal of everything in state and, after confirmation, deletes it in reverse dependency order. It is the cleanup step and it matters for cost: a NAT gateway bills hourly even when idle. Success looks like `Destroy complete!` and the VPC being gone from the console.
+
+### Why state matters
+`terraform.tfstate` is Terraform's map from the resources in my code (like `module.vpc.aws_vpc.this[0]`) to real AWS IDs (like `vpc-0abc...`). Without it Terraform cannot tell whether a resource already exists, so it would try to
+create duplicates and could never safely update or destroy anything. State also caches resource attributes so plans are fast.
