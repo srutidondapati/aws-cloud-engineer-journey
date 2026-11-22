@@ -191,3 +191,25 @@ Plans the removal of everything in state and, after confirmation, deletes it in 
 ### Why state matters
 `terraform.tfstate` is Terraform's map from the resources in my code (like `module.vpc.aws_vpc.this[0]`) to real AWS IDs (like `vpc-0abc...`). Without it Terraform cannot tell whether a resource already exists, so it would try to
 create duplicates and could never safely update or destroy anything. State also caches resource attributes so plans are fast.
+
+## Week 09: Containers & Orchestration
+
+### Summary
+Containerized the PropertyLite app and deployed it to AWS ECS Fargate using Terraform.
+
+- Built a Docker image from `app.py` and pushed it to Amazon ECR
+- Provisioned an ECS cluster, task execution role, Fargate task definition, and service with Terraform
+- Verified the deployment with a `/health` check on the task's public IP
+
+### Key Takeaways
+- Docker packages the app and its dependencies into one portable image
+- ECR stores the image; ECS Fargate runs it with no servers to manage
+- The task execution role lets ECS pull the image from ECR
+- Without a load balancer, the task needs `assign_public_ip = true` to be reachable
+
+### Files
+- `Dockerfile`
+- `main.tf`
+- `task-definition.json`
+- `running-task.png`
+- `curl-response.png`
